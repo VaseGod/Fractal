@@ -1,4 +1,4 @@
-# Fractal — Self-Improving Agentic Infrastructure
+# Fractal — Self Improving Agentic Infrastructure
 
 A secure, self improving multi agent system powered by local inference (Intel Arc Pro B70), LangChain orchestration, and metacognitive feedback loops.
 
