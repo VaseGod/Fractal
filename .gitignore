@@ -1,0 +1,50 @@
+# ── Python ──
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+*.egg
+dist/
+build/
+.eggs/
+.venv/
+venv/
+env/
+*.whl
+
+# ── Node.js ──
+node_modules/
+dist/
+*.tsbuildinfo
+
+# ── Environment ──
+.env
+.env.local
+.env.*.local
+
+# ── IDE ──
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# ── Docker ──
+*.log
+
+# ── Testing ──
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+
+# ── Data (runtime-generated) ──
+data/
+logs/
+models/
+certs/
+
+# ── OS ──
+Thumbs.db

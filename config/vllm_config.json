@@ -1,0 +1,17 @@
+{
+  "model": "/models/default",
+  "device": "xpu",
+  "quantization": "awq",
+  "max_model_len": 8192,
+  "gpu_memory_utilization": 0.90,
+  "tensor_parallel_size": 1,
+  "enforce_eager": true,
+  "trust_remote_code": true,
+  "disable_log_requests": true,
+  "max_num_seqs": 32,
+  "max_num_batched_tokens": 16384,
+  "swap_space": 4,
+  "dtype": "auto",
+  "seed": 42,
+  "extra_args": {}
+}

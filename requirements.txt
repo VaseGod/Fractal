@@ -1,0 +1,62 @@
+# ============================================================
+# Fractal — Python Dependencies (Strictly Pinned)
+# DO NOT use ~= or >= operators. All versions are locked.
+# ============================================================
+
+# ── Core LLM / Agent Framework ──
+langchain==0.3.18
+langchain-core==0.3.32
+langchain-community==0.3.17
+langchain-openai==0.3.5
+langgraph==0.3.10
+langsmith==0.3.10
+
+# ── Inference Engine ──
+vllm==0.7.3
+
+# ── Data Validation ──
+pydantic==2.10.6
+pydantic-settings==2.7.1
+
+# ── Web Framework ──
+fastapi==0.115.8
+uvicorn[standard]==0.34.0
+starlette==0.45.3
+
+# ── HTTP Client ──
+httpx==0.28.1
+aiohttp==3.11.12
+
+# ── Vector Database ──
+chromadb==0.6.3
+
+# ── Embeddings ──
+sentence-transformers==3.4.1
+
+# ── Async / Task Queue ──
+celery==5.4.0
+redis==5.2.1
+
+# ── Security ──
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+cryptography==44.0.0
+
+# ── Observability ──
+structlog==24.4.0
+opentelemetry-api==1.29.0
+opentelemetry-sdk==1.29.0
+prometheus-client==0.21.1
+
+# ── Utilities ──
+python-dotenv==1.0.1
+pyyaml==6.0.2
+tenacity==9.0.0
+click==8.1.8
+orjson==3.10.14
+numpy==2.2.2
+
+# ── Testing ──
+pytest==8.3.4
+pytest-asyncio==0.25.3
+pytest-cov==6.0.0

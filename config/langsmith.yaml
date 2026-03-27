@@ -1,0 +1,77 @@
+# ============================================================
+# Fractal — LangSmith Configuration
+# Tracing, HITL approval, and evaluation settings
+# ============================================================
+
+project:
+  name: "fractal-production"
+  description: "Fractal Agentic Infrastructure"
+
+# ── Tracing ──
+tracing:
+  enabled: true
+  endpoint: "https://api.smith.langchain.com"
+  sampling_rate: 1.0
+  batch_size: 10
+  flush_interval: 5s
+  tags:
+    environment: "production"
+    system: "fractal"
+
+# ── Human-in-the-Loop (HITL) ──
+hitl:
+  enabled: true
+  timeout_seconds: 300
+  escalation:
+    enabled: true
+    notify_email: "${HITL_ESCALATION_EMAIL:-admin@fractal.local}"
+    escalation_after_seconds: 600
+
+  # Actions that ALWAYS require human approval
+  destructive_actions:
+    - "database_write"
+    - "database_delete"
+    - "external_api_call"
+    - "file_system_write"
+    - "configuration_modify"
+    - "evaluation_script_modify"
+    - "memory_purge"
+
+  # Actions that can proceed without approval
+  safe_actions:
+    - "memory_read"
+    - "memory_query"
+    - "log_analysis"
+    - "score_calculation"
+    - "dom_extraction"
+
+# ── Evaluation Datasets ──
+evaluation:
+  datasets:
+    task_agent_eval: "fractal-task-agent-eval"
+    meta_agent_eval: "fractal-meta-agent-eval"
+    benchmark_results: "fractal-benchmark-results"
+
+  # Auto-evaluation settings
+  auto_eval:
+    enabled: true
+    on_run_completion: true
+    evaluators:
+      - name: "correctness"
+        type: "llm"
+      - name: "helpfulness"
+        type: "llm"
+      - name: "efficiency"
+        type: "custom"
+        module: "src.evaluation.scoring"
+
+# ── Feedback ──
+feedback:
+  enabled: true
+  categories:
+    - "correct"
+    - "incorrect"
+    - "partial"
+    - "unsafe"
+    - "efficient"
+    - "inefficient"

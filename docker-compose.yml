@@ -1,0 +1,174 @@
+########################################################
+# Fractal — Docker Compose (Local GPU Cluster)
+# Services: inference, orchestrator, chromadb, jobs
+########################################################
+
+version: "3.9"
+
+x-common-env: &common-env
+  LANGCHAIN_TRACING_V2: "${LANGCHAIN_TRACING_V2:-true}"
+  LANGCHAIN_API_KEY: "${LANGCHAIN_API_KEY}"
+  LANGCHAIN_PROJECT: "${LANGCHAIN_PROJECT:-fractal-production}"
+
+services:
+  # ── vLLM Inference Engine (Intel Arc Pro B70) ──
+  inference:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fractal-inference
+    command: ["bash", "scripts/vllm_init.sh"]
+    environment:
+      <<: *common-env
+      VLLM_MODEL_PATH: "${VLLM_MODEL_PATH:-/models/default}"
+      VLLM_HOST: "0.0.0.0"
+      VLLM_PORT: "8000"
+      VLLM_MAX_MODEL_LEN: "${VLLM_MAX_MODEL_LEN:-8192}"
+      VLLM_GPU_MEMORY_UTILIZATION: "${VLLM_GPU_MEMORY_UTILIZATION:-0.90}"
+      VLLM_QUANTIZATION: "${VLLM_QUANTIZATION:-awq}"
+      VLLM_TENSOR_PARALLEL_SIZE: "${VLLM_TENSOR_PARALLEL_SIZE:-1}"
+      VLLM_TARGET_DEVICE: "xpu"
+      ONEAPI_DEVICE_SELECTOR: "level_zero:gpu"
+      ZE_AFFINITY_MASK: "${ZE_AFFINITY_MASK:-0}"
+      ZE_ENABLE_PCI_ID_DEVICE_ORDER: "1"
+      SYCL_CACHE_PERSISTENT: "1"
+    volumes:
+      - model-weights:/models:ro
+      - ./config/vllm_config.json:/app/config/vllm_config.json:ro
+    ports:
+      - "8000:8000"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: "intel"
+              count: all
+              capabilities: [gpu]
+        limits:
+          memory: 24G
+          cpus: "8"
+    networks:
+      - fractal-internal
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 120s
+      retries: 5
+
+  # ── Main Orchestrator (Task Agent + Meta Agent) ──
+  orchestrator:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fractal-orchestrator
+    command: ["python", "-m", "src.agents.task_agent"]
+    environment:
+      <<: *common-env
+      VLLM_HOST: "inference"
+      VLLM_PORT: "8000"
+      CHROMA_HOST: "chromadb"
+      CHROMA_PORT: "8100"
+      BROWSERBASE_API_KEY: "${BROWSERBASE_API_KEY}"
+      BROWSERBASE_PROJECT_ID: "${BROWSERBASE_PROJECT_ID}"
+      TRIGGER_API_KEY: "${TRIGGER_API_KEY}"
+      TRIGGER_API_URL: "${TRIGGER_API_URL}"
+      BIFROST_CONFIG_PATH: "/app/config/bifrost.yaml"
+      HITL_TIMEOUT_SECONDS: "${HITL_TIMEOUT_SECONDS:-300}"
+    volumes:
+      - ./config:/app/config:ro
+      - fractal-data:/app/data
+      - fractal-logs:/app/logs
+    ports:
+      - "8080:8080"
+    depends_on:
+      inference:
+        condition: service_healthy
+      chromadb:
+        condition: service_healthy
+    networks:
+      - fractal-internal
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+          cpus: "4"
+
+  # ── ChromaDB Vector Database ──
+  chromadb:
+    image: chromadb/chroma:0.6.3
+    container_name: fractal-chromadb
+    environment:
+      CHROMA_SERVER_AUTH_PROVIDER: "chromadb.auth.token_authn.TokenAuthenticationServerProvider"
+      CHROMA_SERVER_AUTH_TOKEN_TRANSPORT_HEADER: "Authorization"
+      IS_PERSISTENT: "TRUE"
+      PERSIST_DIRECTORY: "/chroma/data"
+      ANONYMIZED_TELEMETRY: "FALSE"
+    volumes:
+      - chroma-data:/chroma/data
+    ports:
+      - "8100:8000"
+    networks:
+      - fractal-internal
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v2/heartbeat"]
+      interval: 15s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: "2"
+
+  # ── Trigger.dev Background Jobs Worker ──
+  jobs:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fractal-jobs
+    working_dir: /app/jobs
+    command: ["npx", "trigger.dev@latest", "dev"]
+    environment:
+      <<: *common-env
+      TRIGGER_API_KEY: "${TRIGGER_API_KEY}"
+      TRIGGER_API_URL: "${TRIGGER_API_URL:-https://api.trigger.dev}"
+      BROWSERBASE_API_KEY: "${BROWSERBASE_API_KEY}"
+      BROWSERBASE_PROJECT_ID: "${BROWSERBASE_PROJECT_ID}"
+    volumes:
+      - ./jobs:/app/jobs
+    depends_on:
+      - orchestrator
+    networks:
+      - fractal-internal
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: "2"
+
+# ── Volumes ──
+volumes:
+  model-weights:
+    driver: local
+    driver_opts:
+      type: none
+      device: ${MODEL_WEIGHTS_PATH:-/opt/fractal/models}
+      o: bind
+  fractal-data:
+  fractal-logs:
+  chroma-data:
+
+# ── Networks ──
+networks:
+  fractal-internal:
+    driver: bridge
+    internal: false
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
